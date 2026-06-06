@@ -50,7 +50,7 @@ SUPABASE_JWT_SECRET=
 QR_SIGNING_SECRET=
 RESEND_API_KEY=
 FROM_EMAIL=
-APP_URL=http://localhost:3000
+APP_URL=https://dnyanthon.vercel.app
 ```
 
 Important:
