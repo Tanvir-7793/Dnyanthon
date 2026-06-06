@@ -43,7 +43,7 @@ const XAxis = dynamic(() => import("recharts").then((m) => m.XAxis), { ssr: fals
 const YAxis = dynamic(() => import("recharts").then((m) => m.YAxis), { ssr: false });
 const CartesianGrid = dynamic(() => import("recharts").then((m) => m.CartesianGrid), { ssr: false });
 const Tooltip = dynamic(() => import("recharts").then((m) => m.Tooltip), { ssr: false });
-const Legend = dynamic(() => import("recharts").then((m) => m.Legend), { ssr: false });
+const Legend = dynamic<any>(() => import("recharts").then((m) => m.Legend as any), { ssr: false });
 
 type EventOption = {
   id: string;
@@ -760,7 +760,7 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
                             layout="horizontal" 
                             verticalAlign="bottom" 
                             align="center"
-                            formatter={(value) => <span className="text-xs text-slate-300 font-medium px-2">{value}</span>} 
+                            formatter={(value: any) => <span className="text-xs text-slate-300 font-medium px-2">{value}</span>} 
                           />
                         </PieChart>
                       </ResponsiveContainer>
