@@ -1,9 +1,4 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/README.md b/README.md
-index 3b5a6d476adabff23150af583351e07e4a395f16..8d652d77f96757e6ce019f2b32fc7284c6ffe716 100644
---- a/README.md
-+++ b/README.md
-@@ -1,254 +1,352 @@
+
 -# Dnyanothon 2026 Frontend + Secure Backend Integration
 +<div align="center">
  
@@ -530,6 +525,3 @@ index 3b5a6d476adabff23150af583351e07e4a395f16..8d652d77f96757e6ce019f2b32fc7284
 -- [`src/lib/backend/admin.ts`](./src/lib/backend/admin.ts)
 -- [`src/lib/backend/volunteer.ts`](./src/lib/backend/volunteer.ts)
 +</div>
- 
-EOF
-)
