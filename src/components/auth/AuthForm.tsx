@@ -72,9 +72,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
       setMessage("Account created. Please check your email and confirm your address before signing in.");
     } catch (caughtError) {
-      const authError =
-        caughtError instanceof Error ? caughtError.message : "Unable to complete authentication.";
-      setError(authError);
+      const raw = caughtError instanceof Error ? caughtError.message : String(caughtError);
+      const lower = raw.toLowerCase();
+      if (lower.includes("failed to fetch") || lower.includes("fetch failed") || lower.includes("networkerror") || lower.includes("load failed")) {
+        setError(`Unable to reach Supabase (${raw}). Check NEXT_PUBLIC_SUPABASE_URL in .env.local and ensure the project is running.`);
+      } else {
+        setError(raw || "Unable to complete authentication.");
+      }
     } finally {
       setLoading(false);
     }

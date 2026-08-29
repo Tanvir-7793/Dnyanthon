@@ -63,5 +63,58 @@ export const eventIdQuerySchema = z.object({
   eventId: z.string().uuid(),
 });
 
+export const bulkApproveSchema = z.object({
+  eventId: z.string().uuid(),
+  participantIds: z.array(z.string().uuid()).min(1).max(100),
+});
+
+export const bulkApproveTeamsSchema = z.object({
+  eventId: z.string().uuid(),
+  teamIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+export const updateEventSettingsSchema = z.object({
+  eventId: z.string().uuid(),
+  title: z.string().trim().min(2).max(160).optional(),
+  venue: z.string().trim().max(160).optional().nullable(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  start_date: z.string().trim().optional().nullable(),
+  end_date: z.string().trim().optional().nullable(),
+  registration_open: z.boolean().optional(),
+  status: z.enum(["draft", "published", "live", "completed"]).optional(),
+});
+
+export const serviceControlSchema = z.object({
+  eventId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  is_active: z.boolean().optional(),
+  name: z.string().trim().min(2).max(80).optional(),
+  start_time: z.string().trim().optional().nullable(),
+  end_time: z.string().trim().optional().nullable(),
+});
+
+export const createServiceSchema = z.object({
+  eventId: z.string().uuid(),
+  name: z.string().trim().min(2).max(80),
+  type: z.enum(["entry", "breakfast", "lunch", "snacks", "dinner", "kit", "certificate"]),
+  is_active: z.boolean().optional().default(true),
+  start_time: z.string().trim().optional().nullable(),
+  end_time: z.string().trim().optional().nullable(),
+});
+
+export const volunteerManageSchema = z.object({
+  eventId: z.string().uuid(),
+  email: z.string().trim().email().optional(),
+  userId: z.string().uuid().optional(),
+  duty_name: z.string().trim().max(120).optional().nullable(),
+  assigned_service_id: z.string().uuid().optional().nullable(),
+  is_active: z.boolean().optional(),
+}).refine((v) => v.email || v.userId, { message: "Either email or userId is required." });
+
+export const auditLogQuerySchema = z.object({
+  eventId: z.string().uuid(),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
+
 export type RegisterForEventInput = z.infer<typeof registerForEventSchema>;
 export type TeamMemberInput = z.infer<typeof teamMemberSchema>;

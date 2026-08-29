@@ -305,6 +305,101 @@ export async function getVolunteerDashboard(context: UserContext) {
 
   const assignmentRow = duties[0] ?? null;
   if (!assignmentRow) {
+    const canSeeManagedServices = context.role === "admin" || context.role === "super_admin";
+
+    if (canSeeManagedServices) {
+      const admin = createSupabaseAdminClient();
+      let eventQuery = admin
+        .from("events")
+        .select("*")
+        .order("start_date", { ascending: false, nullsFirst: false })
+        .limit(1);
+
+      if (context.role === "admin") {
+        eventQuery = eventQuery.eq("created_by", context.userId);
+      }
+
+      const { data: events, error: eventError } = await eventQuery;
+      const event = events?.[0] ?? null;
+
+      if (eventError) {
+        throw new AppError(500, "Unable to fetch volunteer dashboard.");
+      }
+
+      if (event) {
+        const [approvedParticipants, servicesResult, claimsResult, volunteerVerifiedScans, invalidScanAttempts] =
+          await Promise.all([
+            admin
+              .from("participants")
+              .select("*", { count: "exact", head: true })
+              .eq("event_id", event.id)
+              .eq("registration_status", "approved"),
+            admin.from("service_types").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
+            admin.from("service_claims").select("service_type_id, status").eq("event_id", event.id),
+            admin
+              .from("service_claims")
+              .select("*", { count: "exact", head: true })
+              .eq("event_id", event.id)
+              .eq("scanned_by", context.userId),
+            admin
+              .from("audit_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("event_id", event.id)
+              .eq("actor_id", context.userId)
+              .in("action", [...INVALID_SCAN_ACTIONS]),
+          ]);
+
+        if (
+          approvedParticipants.error ||
+          servicesResult.error ||
+          claimsResult.error ||
+          volunteerVerifiedScans.error ||
+          invalidScanAttempts.error
+        ) {
+          throw new AppError(500, "Unable to fetch volunteer dashboard.");
+        }
+
+        const approvedCount = approvedParticipants.count ?? 0;
+        const claimCounts = (claimsResult.data ?? []).reduce<Record<string, number>>((accumulator, claim) => {
+          accumulator[claim.service_type_id] = (accumulator[claim.service_type_id] ?? 0) + 1;
+          return accumulator;
+        }, {});
+        const services = (servicesResult.data ?? []).map((service) => {
+          const servedCount = claimCounts[service.id] ?? 0;
+
+          return {
+            id: service.id,
+            name: service.name,
+            type: service.type,
+            is_active: service.is_active,
+            start_time: service.start_time,
+            end_time: service.end_time,
+            servedCount,
+            pendingCount: Math.max(approvedCount - servedCount, 0),
+            status: getServiceStatus(service.start_time, service.end_time, service.is_active),
+          };
+        });
+        const verifiedScans = volunteerVerifiedScans.count ?? 0;
+        const invalidAttempts = invalidScanAttempts.count ?? 0;
+
+        return {
+          profile: context.profile,
+          event,
+          assignment: null,
+          quickStats: {
+            totalScans: verifiedScans + invalidAttempts,
+            verifiedScans,
+            invalidScanAttempts: invalidAttempts,
+            activeServices: services.filter((service) => service.status === "Active").length,
+            assignedServiceServedCount: 0,
+            assignedServicePendingCount: 0,
+          },
+          services,
+          recentScans,
+        };
+      }
+    }
+
     return {
       profile: context.profile,
       event: null,

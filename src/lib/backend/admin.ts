@@ -11,9 +11,16 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   approveParticipantSchema,
   approveTeamSchema,
+  auditLogQuerySchema,
+  bulkApproveSchema,
+  bulkApproveTeamsSchema,
+  createServiceSchema,
   eventIdQuerySchema,
   rejectParticipantSchema,
   resendParticipantQrSchema,
+  serviceControlSchema,
+  updateEventSettingsSchema,
+  volunteerManageSchema,
 } from "@/lib/validations/registration";
 
 import {
@@ -21,6 +28,7 @@ import {
   formatEventDateLabel,
   insertAuditLog,
   insertEmailLog,
+  isUniqueViolation,
   resolveEventOrThrow,
   toJson,
 } from "./shared";
@@ -931,4 +939,241 @@ export async function listManagedEvents(context: UserContext) {
   }
 
   return data ?? [];
+}
+
+// ── New Admin Feature Functions ──
+
+export async function bulkApproveParticipants(rawInput: unknown, context: UserContext) {
+  const input = bulkApproveSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  let approved = 0;
+  let failed = 0;
+  const errors: string[] = [];
+  for (const pid of input.participantIds) {
+    try {
+      const participant = await getParticipantWithContext(pid);
+      if (participant.event_id !== input.eventId) throw new AppError(403, "Participant does not belong to this event.");
+      if (participant.registration_status === "approved") continue;
+      await deliverParticipantQrPass({ participant, actorId: context.userId, auditAction: "participant.approved" });
+      approved++;
+    } catch (e) {
+      failed++;
+      errors.push(e instanceof Error ? e.message : "Unknown error");
+    }
+  }
+  await insertAuditLog({
+    actor_id: context.userId,
+    event_id: input.eventId,
+    action: "participants.bulk_approved",
+    entity_type: "participant",
+    metadata: toJson({ approved, failed, total: input.participantIds.length }),
+  });
+  return { success: true, approved, failed, errors: errors.slice(0, 5) };
+}
+
+export async function bulkApproveTeams(rawInput: unknown, context: UserContext) {
+  const input = bulkApproveTeamsSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  let approved = 0;
+  let failed = 0;
+  const errors: string[] = [];
+  for (const tid of input.teamIds) {
+    try {
+      const team = await getTeamWithContext(tid);
+      if (team.event_id !== input.eventId) throw new AppError(403, "Team does not belong to this event.");
+      const participants = await listTeamParticipants(tid);
+      if (participants.length === 0) throw new AppError(400, "Team has no members.");
+      await deliverTeamQrPasses({ team, participants, actorId: context.userId });
+      approved++;
+    } catch (e) {
+      failed++;
+      errors.push(e instanceof Error ? e.message : "Unknown error");
+    }
+  }
+  await insertAuditLog({
+    actor_id: context.userId,
+    event_id: input.eventId,
+    action: "teams.bulk_approved",
+    metadata: toJson({ approved, failed, total: input.teamIds.length }),
+  });
+  return { success: true, approved, failed, errors: errors.slice(0, 5) };
+}
+
+export async function updateEventSettings(rawInput: unknown, context: UserContext) {
+  const input = updateEventSettingsSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const payload: Record<string, unknown> = {};
+  if (input.title !== undefined) payload.title = input.title;
+  if (input.venue !== undefined) payload.venue = input.venue;
+  if (input.description !== undefined) payload.description = input.description;
+  if (input.start_date !== undefined) payload.start_date = input.start_date || null;
+  if (input.end_date !== undefined) payload.end_date = input.end_date || null;
+  if (input.registration_open !== undefined) payload.registration_open = input.registration_open;
+  if (input.status !== undefined) payload.status = input.status;
+  if (Object.keys(payload).length === 0) throw new AppError(400, "No fields to update.");
+  const { data, error } = await (admin.from("events") as any).update(payload).eq("id", input.eventId).select("*").single();
+  if (error) throw new AppError(500, "Unable to update event settings.");
+  await insertAuditLog({
+    actor_id: context.userId,
+    event_id: input.eventId,
+    action: "event.settings_updated",
+    entity_type: "event",
+    entity_id: input.eventId,
+    metadata: toJson(payload as Record<string, string>),
+  });
+  return data;
+}
+
+export async function updateServiceControl(rawInput: unknown, context: UserContext) {
+  const input = serviceControlSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const payload: Record<string, unknown> = {};
+  if (input.is_active !== undefined) payload.is_active = input.is_active;
+  if (input.name !== undefined) payload.name = input.name;
+  if (input.start_time !== undefined) payload.start_time = input.start_time || null;
+  if (input.end_time !== undefined) payload.end_time = input.end_time || null;
+  if (Object.keys(payload).length === 0) throw new AppError(400, "No fields to update.");
+  const { data, error } = await (admin.from("service_types") as any).update(payload).eq("id", input.serviceId).eq("event_id", input.eventId).select("*").single();
+  if (error) throw new AppError(500, "Unable to update service.");
+  await insertAuditLog({
+    actor_id: context.userId,
+    event_id: input.eventId,
+    action: "service.updated",
+    entity_type: "service_type",
+    entity_id: input.serviceId,
+    metadata: toJson(payload as Record<string, string>),
+  });
+  return data;
+}
+
+export async function createService(rawInput: unknown, context: UserContext) {
+  const input = createServiceSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.from("service_types").insert({
+    event_id: input.eventId,
+    name: input.name,
+    type: input.type,
+    is_active: input.is_active ?? true,
+    start_time: input.start_time || null,
+    end_time: input.end_time || null,
+  }).select("*").single();
+  if (error) {
+    if (isUniqueViolation(error)) throw new AppError(409, "This service type already exists for this event.");
+    throw new AppError(500, "Unable to create service.");
+  }
+  await insertAuditLog({
+    actor_id: context.userId,
+    event_id: input.eventId,
+    action: "service.created",
+    entity_type: "service_type",
+    entity_id: data.id,
+    metadata: toJson({ name: input.name, type: input.type }),
+  });
+  return data;
+}
+
+export async function deleteService(rawInput: unknown, context: UserContext) {
+  const input = serviceControlSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("service_types").delete().eq("id", input.serviceId).eq("event_id", input.eventId);
+  if (error) throw new AppError(500, "Unable to delete service.");
+  await insertAuditLog({
+    actor_id: context.userId,
+    event_id: input.eventId,
+    action: "service.deleted",
+    entity_type: "service_type",
+    entity_id: input.serviceId,
+    metadata: toJson({}),
+  });
+  return { success: true };
+}
+
+export async function manageVolunteer(rawInput: unknown, context: UserContext, mode: "add" | "update" | "remove") {
+  const input = volunteerManageSchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  if (mode === "remove") {
+    const userId = input.userId;
+    if (!userId) throw new AppError(400, "userId required for removal.");
+    const { error } = await admin.from("volunteers").delete().eq("user_id", userId).eq("event_id", input.eventId);
+    if (error) throw new AppError(500, "Unable to remove volunteer.");
+    await insertAuditLog({ actor_id: context.userId, event_id: input.eventId, action: "volunteer.removed", entity_type: "volunteer", entity_id: userId, metadata: toJson({}) });
+    return { success: true };
+  }
+  if (mode === "add") {
+    let userId = input.userId ?? null;
+    if (!userId && input.email) {
+      const { data: profile } = await admin.from("profiles").select("id").eq("email", input.email.trim().toLowerCase()).single();
+      if (!profile) throw new AppError(404, "No user found with this email. User must sign up first.");
+      userId = profile.id;
+    }
+    if (!userId) throw new AppError(400, "Could not resolve user.");
+    const { data, error } = await admin.from("volunteers").upsert({
+      user_id: userId,
+      event_id: input.eventId,
+      duty_name: input.duty_name ?? null,
+      assigned_service_id: input.assigned_service_id ?? null,
+      is_active: input.is_active ?? true,
+    }, { onConflict: "user_id,event_id" }).select("*").single();
+    if (error) throw new AppError(500, "Unable to add volunteer.");
+    // promote role to volunteer if participant
+    await admin.from("profiles").update({ role: "volunteer" }).eq("id", userId).eq("role", "participant");
+    await insertAuditLog({ actor_id: context.userId, event_id: input.eventId, action: "volunteer.added", entity_type: "volunteer", entity_id: userId, metadata: toJson({ duty_name: input.duty_name ?? null }) });
+    return data;
+  }
+  // update
+  if (!input.userId) throw new AppError(400, "userId required for update.");
+  const payload: Record<string, unknown> = {};
+  if (input.duty_name !== undefined) payload.duty_name = input.duty_name;
+  if (input.assigned_service_id !== undefined) payload.assigned_service_id = input.assigned_service_id;
+  if (input.is_active !== undefined) payload.is_active = input.is_active;
+  if (Object.keys(payload).length === 0) throw new AppError(400, "No fields to update.");
+  const { data, error } = await (admin.from("volunteers") as any).update(payload).eq("user_id", input.userId).eq("event_id", input.eventId).select("*").single();
+  if (error) throw new AppError(500, "Unable to update volunteer.");
+  await insertAuditLog({ actor_id: context.userId, event_id: input.eventId, action: "volunteer.updated", entity_type: "volunteer", entity_id: input.userId, metadata: toJson(payload as Record<string, string>) });
+  return data;
+}
+
+export async function getAuditLogs(rawInput: unknown, context: UserContext) {
+  const input = auditLogQuerySchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.from("audit_logs").select(`*, actor:profiles!audit_logs_actor_id_fkey(full_name, email)`).eq("event_id", input.eventId).order("created_at", { ascending: false }).limit(input.limit);
+  if (error) throw new AppError(500, "Unable to fetch audit logs.");
+  return data ?? [];
+}
+
+export async function getEmailAnalytics(rawInput: unknown, context: UserContext) {
+  const input = eventIdQuerySchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.from("email_logs").select("email_type, status, created_at").eq("event_id", input.eventId);
+  if (error) throw new AppError(500, "Unable to fetch email analytics.");
+  const rows = data ?? [];
+  const byType: Record<string, number> = {};
+  const byStatus: Record<string, number> = {};
+  rows.forEach((r) => {
+    byType[r.email_type] = (byType[r.email_type] ?? 0) + 1;
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+  });
+  return { total: rows.length, byType, byStatus, recent: rows.slice(-20) };
+}
+
+export async function exportTeamsCsv(rawInput: unknown, context: UserContext) {
+  const input = eventIdQuerySchema.parse(rawInput);
+  await assertCanManageEvent(input.eventId, context);
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.from("teams").select(`*, participants:participants(id, full_name, email, registration_status)`).eq("event_id", input.eventId).order("created_at", { ascending: false });
+  if (error) throw new AppError(500, "Unable to fetch teams.");
+  const headers = ["team_name", "college_name", "problem_track", "member_count", "member_emails", "status_summary", "created_at"];
+  const lines = (data ?? []).map((team: any) => {
+    const emails = (team.participants ?? []).map((p: any) => p.email).join(" | ");
+    const statusSummary = (team.participants ?? []).map((p: any) => p.registration_status).join(" | ");
+    return [team.team_name, team.college_name, team.problem_track, team.member_count, emails, statusSummary, team.created_at].map((v: any) => escapeCsvValue(v)).join(",");
+  });
+  return [headers.join(","), ...lines].join("\n");
 }

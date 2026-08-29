@@ -11,6 +11,15 @@ export function AdminLoginForm({ adminEmail }: { adminEmail: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function friendlyMessage(err: unknown): string {
+    const raw = err instanceof Error ? err.message : String(err);
+    const lower = raw.toLowerCase();
+    if (lower.includes("failed to fetch") || lower.includes("fetch failed") || lower.includes("networkerror") || lower.includes("load failed")) {
+      return `Unable to reach Supabase (${raw}). This is a connectivity/DNS issue — verify NEXT_PUBLIC_SUPABASE_URL in .env.local (currently "${process.env.NEXT_PUBLIC_SUPABASE_URL}"), ensure the Supabase project is not paused/deleted, and check your internet/firewall.`;
+    }
+    return raw || "Unable to sign in to the admin panel.";
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -31,9 +40,7 @@ export function AdminLoginForm({ adminEmail }: { adminEmail: string }) {
       router.push("/admin");
       router.refresh();
     } catch (caughtError) {
-      const authError =
-        caughtError instanceof Error ? caughtError.message : "Unable to sign in to the admin panel.";
-      setError(authError);
+      setError(friendlyMessage(caughtError));
     } finally {
       setLoading(false);
     }

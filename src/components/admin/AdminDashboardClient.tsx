@@ -27,7 +27,27 @@ import {
   ShieldCheck,
   CheckCircle,
   Loader2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Settings,
+  ScrollText,
+  History,
+  Megaphone,
+  ShieldAlert,
+  ToggleLeft,
+  ToggleRight,
+  Plus,
+  Trash2,
+  UserPlus,
+  Download,
+  CheckSquare,
+  Square,
+  Zap,
+  BarChart3,
+  Globe,
+  Calendar,
+  Power,
+  Eye,
+  Layers
 } from "lucide-react";
 
 // Recharts components dynamically imported to bypass SSR hydration issues
@@ -163,6 +183,34 @@ type VolunteerRow = {
   } | null;
 };
 
+type AuditLogRow = {
+  id: string;
+  action: string;
+  entity_type: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  actor?: { full_name?: string; email?: string } | null;
+};
+
+type EmailAnalytics = {
+  total: number;
+  byType: Record<string, number>;
+  byStatus: Record<string, number>;
+  recent: unknown[];
+};
+
+type EventSettings = {
+  id: string;
+  title: string;
+  slug: string;
+  venue: string | null;
+  description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  registration_open: boolean;
+  status: string;
+};
+
 type DashboardData = {
   stats: DashboardStats | null;
   participants: ParticipantRow[];
@@ -170,6 +218,9 @@ type DashboardData = {
   recentScans: ScanRow[];
   services: ServiceRow[];
   volunteers: VolunteerRow[];
+  auditLogs: AuditLogRow[];
+  emailAnalytics: EmailAnalytics | null;
+  eventSettings: EventSettings | null;
 };
 
 const sectionCard =
@@ -212,6 +263,9 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
     recentScans: [],
     services: [],
     volunteers: [],
+    auditLogs: [],
+    emailAnalytics: null,
+    eventSettings: null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,15 +273,25 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyParticipantId, setBusyParticipantId] = useState<string | null>(null);
   const [busyTeamId, setBusyTeamId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
-  // Layout Tab selection: overview, teams, participants, operations
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "participants" | "operations">("overview");
+  // Layout Tab selection
+  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "participants" | "operations" | "settings" | "logs">("overview");
 
   // Filter and search states
   const [teamSearch, setTeamSearch] = useState("");
   const [participantSearch, setParticipantSearch] = useState("");
   const [participantStatus, setParticipantStatus] = useState<string>("all");
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
+  const [eventForm, setEventForm] = useState<{ title: string; venue: string; description: string; registration_open: boolean; status: string; start_date: string; end_date: string } | null>(null);
+  const [volunteerEmail, setVolunteerEmail] = useState("");
+  const [volunteerDuty, setVolunteerDuty] = useState("");
+  const [volunteerServiceId, setVolunteerServiceId] = useState("");
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceType, setNewServiceType] = useState("lunch");
+  const [serviceBusyId, setServiceBusyId] = useState<string | null>(null);
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === eventId) ?? events[0],
@@ -247,6 +311,9 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
         scansResponse,
         servicesResponse,
         volunteersResponse,
+        auditResponse,
+        emailAnalyticsResponse,
+        eventSettingsResponse,
       ] = await Promise.all([
         fetch(`/api/admin/dashboard-stats?${query}`, { cache: "no-store" }),
         fetch(`/api/admin/participants?${query}`, { cache: "no-store" }),
@@ -254,6 +321,9 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
         fetch(`/api/admin/recent-scans?${query}`, { cache: "no-store" }),
         fetch(`/api/admin/meal-service-status?${query}`, { cache: "no-store" }),
         fetch(`/api/admin/volunteer-activity?${query}`, { cache: "no-store" }),
+        fetch(`/api/admin/audit-logs?${query}&limit=25`, { cache: "no-store" }),
+        fetch(`/api/admin/email-analytics?${query}`, { cache: "no-store" }),
+        fetch(`/api/admin/event-settings?${query}`, { cache: "no-store" }),
       ]);
 
       const responses = [
@@ -274,6 +344,9 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
       const [stats, participants, teams, recentScans, services, volunteers] = await Promise.all(
         responses.map((response) => response.json()),
       );
+      const auditLogs = await auditResponse.json().catch(() => ({ logs: [] }));
+      const emailAnalytics = await emailAnalyticsResponse.json().catch(() => null);
+      const eventSettingsJson = await eventSettingsResponse.json().catch(() => null);
 
       setData({
         stats,
@@ -282,7 +355,21 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
         recentScans: recentScans.recentScans ?? [],
         services: services.services ?? [],
         volunteers: volunteers.volunteers ?? [],
+        auditLogs: auditLogs.logs ?? [],
+        emailAnalytics: emailAnalytics && !emailAnalytics.error ? emailAnalytics : null,
+        eventSettings: eventSettingsJson?.event ?? null,
       });
+      if (eventSettingsJson?.event && !eventForm) {
+        setEventForm({
+          title: eventSettingsJson.event.title ?? "",
+          venue: eventSettingsJson.event.venue ?? "",
+          description: eventSettingsJson.event.description ?? "",
+          registration_open: eventSettingsJson.event.registration_open ?? true,
+          status: eventSettingsJson.event.status ?? "published",
+          start_date: eventSettingsJson.event.start_date ? new Date(eventSettingsJson.event.start_date).toISOString().slice(0,16) : "",
+          end_date: eventSettingsJson.event.end_date ? new Date(eventSettingsJson.event.end_date).toISOString().slice(0,16) : "",
+        });
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to load admin dashboard.");
     } finally {
@@ -293,6 +380,20 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
   useEffect(() => {
     void loadDashboardData();
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (data.eventSettings && !eventForm) {
+      setEventForm({
+        title: data.eventSettings.title ?? "",
+        venue: data.eventSettings.venue ?? "",
+        description: data.eventSettings.description ?? "",
+        registration_open: data.eventSettings.registration_open ?? true,
+        status: data.eventSettings.status ?? "published",
+        start_date: data.eventSettings.start_date ? new Date(data.eventSettings.start_date).toISOString().slice(0,16) : "",
+        end_date: data.eventSettings.end_date ? new Date(data.eventSettings.end_date).toISOString().slice(0,16) : "",
+      });
+    }
+  }, [data.eventSettings]);
 
   // Analytics Computations
   const registrationTrend = useMemo(() => {
@@ -504,6 +605,122 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
     router.refresh();
   }
 
+  async function handleBulkApproveParticipants() {
+    if (selectedParticipantIds.size === 0) return;
+    setBulkBusy(true);
+    setActionError(null); setActionMessage(null);
+    try {
+      const res = await fetch("/api/admin/bulk-approve-participants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, participantIds: Array.from(selectedParticipantIds) }) });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? "Bulk approve failed");
+      setActionMessage(`Bulk approve done: ${payload.approved} approved, ${payload.failed} failed`);
+      setSelectedParticipantIds(new Set());
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Bulk approve failed"); } finally { setBulkBusy(false); }
+  }
+
+  async function handleBulkApproveTeams() {
+    if (selectedTeamIds.size === 0) return;
+    setBulkBusy(true);
+    setActionError(null); setActionMessage(null);
+    try {
+      const res = await fetch("/api/admin/bulk-approve-teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, teamIds: Array.from(selectedTeamIds) }) });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? "Bulk approve failed");
+      setActionMessage(`Bulk team approve: ${payload.approved} approved, ${payload.failed} failed`);
+      setSelectedTeamIds(new Set());
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Bulk approve failed"); } finally { setBulkBusy(false); }
+  }
+
+  async function handleUpdateEventSettings() {
+    if (!eventForm) return;
+    setBulkBusy(true);
+    setActionError(null); setActionMessage(null);
+    try {
+      const payload: any = { eventId, title: eventForm.title, venue: eventForm.venue || null, description: eventForm.description || null, registration_open: eventForm.registration_open, status: eventForm.status };
+      if (eventForm.start_date) payload.start_date = new Date(eventForm.start_date).toISOString();
+      else payload.start_date = null;
+      if (eventForm.end_date) payload.end_date = new Date(eventForm.end_date).toISOString();
+      else payload.end_date = null;
+      const res = await fetch("/api/admin/event-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Update failed");
+      setActionMessage("Event settings updated successfully");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Update failed"); } finally { setBulkBusy(false); }
+  }
+
+  async function handleToggleService(serviceId: string, currentActive: boolean) {
+    setServiceBusyId(serviceId);
+    try {
+      const res = await fetch("/api/admin/services", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, serviceId, is_active: !currentActive }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Toggle failed");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Toggle failed"); } finally { setServiceBusyId(null); }
+  }
+
+  async function handleCreateService() {
+    if (!newServiceName.trim()) { setActionError("Service name required"); return; }
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/services", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, name: newServiceName.trim(), type: newServiceType }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Create failed");
+      setActionMessage(`Service "${newServiceName}" created`);
+      setNewServiceName("");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Create failed"); } finally { setBulkBusy(false); }
+  }
+
+  async function handleDeleteService(serviceId: string) {
+    if (!confirm("Delete this service? Claims will remain but service removed.")) return;
+    setServiceBusyId(serviceId);
+    try {
+      const res = await fetch("/api/admin/services", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, serviceId }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Delete failed");
+      setActionMessage("Service deleted");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Delete failed"); } finally { setServiceBusyId(null); }
+  }
+
+  async function handleAddVolunteer() {
+    if (!volunteerEmail.trim()) { setActionError("Volunteer email required"); return; }
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/volunteers-manage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, email: volunteerEmail.trim(), duty_name: volunteerDuty || null, assigned_service_id: volunteerServiceId || null }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Add volunteer failed - user must have signed up first");
+      setActionMessage(`Volunteer ${volunteerEmail} added`);
+      setVolunteerEmail(""); setVolunteerDuty(""); setVolunteerServiceId("");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Add volunteer failed"); } finally { setBulkBusy(false); }
+  }
+
+  async function handleRemoveVolunteer(userId: string) {
+    if (!confirm("Remove this volunteer?")) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/volunteers-manage", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, userId }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Remove failed");
+      setActionMessage("Volunteer removed");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Remove failed"); } finally { setBulkBusy(false); }
+  }
+
+  async function handleToggleVolunteer(userId: string, currentActive: boolean) {
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/volunteers-manage", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, userId, is_active: !currentActive }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Toggle failed");
+      await loadDashboardData();
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Toggle failed"); } finally { setBulkBusy(false); }
+  }
+
   // Search & Filter Computations
   const filteredTeams = useMemo(() => {
     if (!teamSearch.trim()) return data.teams;
@@ -610,12 +827,14 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
         )}
 
         {/* Modern Tab Bar Selector */}
-        <div className="mb-8 flex border-b border-white/10 bg-white/[0.01] rounded-2xl p-1.5 backdrop-blur-sm">
+        <div className="mb-8 flex flex-wrap border-b border-white/10 bg-white/[0.01] rounded-2xl p-1.5 backdrop-blur-sm gap-1">
           {[
-            { id: "overview", label: "Analytics Overview", icon: LayoutDashboard },
-            { id: "teams", label: "Team Verifications", icon: Users },
-            { id: "participants", label: "Individual Queue", icon: UserCheck },
+            { id: "overview", label: "Analytics", icon: LayoutDashboard },
+            { id: "teams", label: "Teams", icon: Users },
+            { id: "participants", label: "Participants", icon: UserCheck },
             { id: "operations", label: "Ops & Services", icon: Coffee },
+            { id: "settings", label: "Event Settings", icon: Settings },
+            { id: "logs", label: "Audit Logs", icon: ScrollText },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -682,6 +901,22 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
                   <p className="mt-4 text-3xl font-black sm:text-4xl" style={{ fontFamily: "'Syne', sans-serif" }}>
                     {loading ? "..." : item.value.toLocaleString()}
                   </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Operational Snapshot */}
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+              {[
+                { label: "Check-ins", value: data.recentScans.filter(s=>s.status==='valid').length, sub: `of ${data.recentScans.length} scans`, icon: Eye, color: "text-cyan-400" },
+                { label: "Meals Served", value: (data.stats?.lunchServedCount ?? 0)+(data.stats?.dinnerServedCount ?? 0)+(data.stats?.snacksServedCount ?? 0), sub: `${data.stats?.invalidScanAttempts ?? 0} invalid attempts`, icon: Coffee, color: "text-pink-400" },
+                { label: "Emails Sent", value: data.emailAnalytics?.byStatus?.sent ?? 0, sub: `${data.emailAnalytics?.byStatus?.failed ?? 0} failed`, icon: Mail, color: "text-emerald-400" },
+                { label: "Approval Rate", value: `${data.stats?.totalRegistrations ? Math.round((data.stats.approvedParticipants / data.stats.totalRegistrations)*100) : 0}%`, sub: `${data.stats?.pendingParticipants ?? 0} pending queue`, icon: BarChart3, color: "text-amber-400" },
+              ].map(item=> (
+                <div key={item.label} className={`${sectionCard} border border-white/5 bg-white/[0.02] p-4 flex flex-col`}>
+                  <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</p><item.icon className={`h-4 w-4 ${item.color}`}/></div>
+                  <p className="mt-2 text-2xl font-black">{loading ? '...' : item.value}</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{item.sub}</p>
                 </div>
               ))}
             </div>
@@ -854,6 +1089,18 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
         {/* TAB 2: TEAMS QUEUE */}
         {activeTab === "teams" && (
           <div className="space-y-6 animate-fade-in">
+            {/* Bulk Actions Bar Teams */}
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <button onClick={() => setSelectedTeamIds(new Set(filteredTeams.filter(t => (t.participants?.filter(p=>p.registration_status==='pending').length ?? 0)>0).map(t=>t.id)))} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 hover:bg-white/10"><CheckSquare className="h-3.5 w-3.5"/> Select all pending</button>
+                <button onClick={() => setSelectedTeamIds(new Set())} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 hover:bg-white/5"><Square className="h-3.5 w-3.5"/> Clear</button>
+                <span>Selected: <b className="text-white">{selectedTeamIds.size}</b></span>
+              </div>
+              <button disabled={selectedTeamIds.size===0 || bulkBusy} onClick={handleBulkApproveTeams} className="ml-auto flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50 hover:from-purple-500 hover:to-indigo-500">
+                {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Zap className="h-4 w-4"/>} Bulk Approve ({selectedTeamIds.size})
+              </button>
+              <Link href={`/api/admin/export-teams?eventId=${encodeURIComponent(eventId)}`} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold hover:bg-white/10"><Download className="h-4 w-4"/> Export Teams CSV</Link>
+            </div>
             {/* Search Filters Bar */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
@@ -907,6 +1154,7 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
                     >
                       {/* Accordion Header */}
                       <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+                        <button onClick={() => { const n=new Set(selectedTeamIds); if(n.has(team.id)) n.delete(team.id); else n.add(team.id); setSelectedTeamIds(n); }} className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${selectedTeamIds.has(team.id) ? 'bg-purple-600 border-purple-500 text-white' : 'border-white/10 bg-white/5 text-slate-400'}`}>{selectedTeamIds.has(team.id) ? <CheckCircle className="h-4 w-4"/> : <Square className="h-4 w-4"/>}</button>
                         <div className="flex-1 cursor-pointer" onClick={() => setExpandedTeamId(isExpanded ? null : team.id)}>
                           <div className="flex flex-wrap items-center gap-3">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -1034,6 +1282,16 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
         {/* TAB 3: INDIVIDUAL PARTICIPANTS QUEUE */}
         {activeTab === "participants" && (
           <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <button onClick={() => setSelectedParticipantIds(new Set(filteredParticipants.filter(p=>p.registration_status==='pending').map(p=>p.id)))} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 hover:bg-white/10"><CheckSquare className="h-3.5 w-3.5"/> Select all pending ({filteredParticipants.filter(p=>p.registration_status==='pending').length})</button>
+                <button onClick={() => setSelectedParticipantIds(new Set())} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 hover:bg-white/5"><Square className="h-3.5 w-3.5"/> Clear</button>
+                <span>Selected: <b className="text-white">{selectedParticipantIds.size}</b></span>
+              </div>
+              <button disabled={selectedParticipantIds.size===0 || bulkBusy} onClick={handleBulkApproveParticipants} className="ml-auto flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50 hover:from-emerald-500 hover:to-teal-500">
+                {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Zap className="h-4 w-4"/>} Bulk Approve ({selectedParticipantIds.size})
+              </button>
+            </div>
             {/* Filters Bar */}
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="relative flex-1 max-w-md">
@@ -1088,10 +1346,12 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
                   return (
                     <div 
                       key={participant.id} 
-                      className={`${sectionCard} border border-white/5 bg-white/[0.02] p-5 hover:border-white/10 transition`}
+                      className={`${sectionCard} border ${selectedParticipantIds.has(participant.id) ? 'border-purple-500/40 bg-purple-950/10' : 'border-white/5 bg-white/[0.02]'} p-5 hover:border-white/10 transition`}
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
+                        <div className="flex gap-3">
+                          <button onClick={()=>{const n=new Set(selectedParticipantIds); if(n.has(participant.id)) n.delete(participant.id); else n.add(participant.id); setSelectedParticipantIds(n);}} className={`mt-1 h-6 w-6 rounded-lg border flex items-center justify-center shrink-0 ${selectedParticipantIds.has(participant.id) ? 'bg-purple-600 border-purple-500 text-white' : 'border-white/10 bg-white/5'}`}>{selectedParticipantIds.has(participant.id) ? <CheckCircle className="h-3.5 w-3.5"/> : <Square className="h-3.5 w-3.5 text-slate-500"/>}</button>
+                          <div>
                           <div className="flex flex-wrap items-center gap-3">
                             <h4 className="text-base font-bold text-white">{participant.full_name}</h4>
                             
@@ -1173,6 +1433,7 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
                           )}
                         </div>
                       </div>
+                        </div>
                     </div>
                   );
                 })}
@@ -1215,46 +1476,68 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
                   )}
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {data.services.map((service) => (
-                    <div key={service.id} className="rounded-xl border border-white/5 bg-white/[0.01] p-4 text-center">
-                      <p className="text-xs font-bold text-slate-400 capitalize">{service.name}</p>
-                      <p className="text-2xl font-black text-white mt-1.5">{service.servedCount}</p>
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider mt-2 ${
-                        service.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400"
-                      }`}>
-                        {service.is_active ? "Active" : "Inactive"}
-                      </span>
+                    <div key={service.id} className="rounded-xl border border-white/5 bg-white/[0.01] p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 capitalize">{service.name}</p>
+                          <p className="text-xl font-black text-white mt-1">{service.servedCount} served</p>
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider mt-2 ${service.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400"}`}>{service.is_active ? "Active" : "Paused"}</span>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <button disabled={serviceBusyId===service.id} onClick={()=>handleToggleService(service.id, service.is_active)} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold flex items-center gap-1 ${service.is_active ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/15' : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15'}`}>{service.is_active ? <ToggleRight className="h-3 w-3"/> : <ToggleLeft className="h-3 w-3"/>}{service.is_active ? 'Pause' : 'Activate'}</button>
+                          <button disabled={serviceBusyId===service.id} onClick={()=>handleDeleteService(service.id)} className="rounded-lg border border-red-500/15 bg-red-500/5 px-2.5 py-1.5 text-[10px] font-bold text-red-300 hover:bg-red-500/10 flex items-center gap-1 justify-center"><Trash2 className="h-3 w-3"/>Delete</button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
+                <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 p-3 flex flex-col sm:flex-row gap-2">
+                  <input value={newServiceName} onChange={e=>setNewServiceName(e.target.value)} placeholder="New service name (e.g. Evening Snacks)" className="flex-1 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-500" />
+                  <select value={newServiceType} onChange={e=>setNewServiceType(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white">
+                    <option value="entry">entry</option><option value="breakfast">breakfast</option><option value="lunch">lunch</option><option value="snacks">snacks</option><option value="dinner">dinner</option><option value="kit">kit</option><option value="certificate">certificate</option>
+                  </select>
+                  <button onClick={handleCreateService} disabled={bulkBusy} className="flex items-center justify-center gap-1 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-500 disabled:opacity-50"><Plus className="h-3.5 w-3.5"/>Add Service</button>
+                </div>
               </div>
 
-              {/* Volunteers Activity */}
+              {/* Volunteers Activity + Management */}
               <div className={`${sectionCard} p-6 border border-white/5`}>
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-white">Volunteer Ground Ops</h3>
-                  <p className="text-xs text-slate-400">Scans recorded by active volunteers</p>
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Volunteer Ground Ops</h3>
+                    <p className="text-xs text-slate-400">Assign, pause or remove volunteers</p>
+                  </div>
+                  <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 text-[10px] font-bold text-purple-300">{data.volunteers.length} volunteers</span>
                 </div>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="mb-4 rounded-xl border border-white/10 bg-slate-950/40 p-3 space-y-2">
+                  <p className="text-xs font-bold text-slate-300 flex items-center gap-1"><UserPlus className="h-3.5 w-3.5 text-purple-400"/> Add Volunteer by Email</p>
+                  <input value={volunteerEmail} onChange={e=>setVolunteerEmail(e.target.value)} placeholder="volunteer@email.com (must have account)" className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-500" />
+                  <div className="flex gap-2">
+                    <input value={volunteerDuty} onChange={e=>setVolunteerDuty(e.target.value)} placeholder="Duty name (optional)" className="flex-1 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-500" />
+                    <select value={volunteerServiceId} onChange={e=>setVolunteerServiceId(e.target.value)} className="flex-1 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white">
+                      <option value="">No service (general)</option>
+                      {data.services.map(s=> <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={handleAddVolunteer} disabled={bulkBusy} className="w-full flex items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50"><UserPlus className="h-3.5 w-3.5"/> Add / Update Volunteer</button>
+                  <p className="text-[10px] text-slate-500">User is auto-promoted to volunteer role if they are participant</p>
+                </div>
+                <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
                   {data.volunteers.length === 0 ? (
-                    <p className="text-center text-xs text-slate-500 py-10">No volunteer stats available</p>
+                    <p className="text-center text-xs text-slate-500 py-10">No volunteers assigned yet</p>
                   ) : (
                     data.volunteers.map((volunteer) => (
                       <div key={volunteer.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-950/20 p-3.5">
                         <div>
-                          <p className="text-sm font-bold text-white">{volunteer.profile?.full_name ?? "General Duty"}</p>
-                          <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-                            Duty: {volunteer.duty_name ?? volunteer.service_type?.name ?? "General"}
-                          </p>
+                          <p className="text-sm font-bold text-white flex items-center gap-2">{volunteer.profile?.full_name ?? "General Duty"} {!volunteer.is_active && <span className="rounded-full bg-slate-500/20 px-1.5 py-0.5 text-[9px] text-slate-400">PAUSED</span>}</p>
+                          <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">Duty: {volunteer.duty_name ?? volunteer.service_type?.name ?? "General"} • {volunteer.profile?.email ?? volunteer.user_id.slice(0,8)}</p>
+                          <p className="text-[10px] text-purple-300 mt-1">{volunteer.scanCount} scans {volunteer.lastScanAt && `• last ${new Date(volunteer.lastScanAt).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})}`}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-base font-black text-purple-300">{volunteer.scanCount} scans</p>
-                          {volunteer.lastScanAt && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              {new Date(volunteer.lastScanAt).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          )}
+                        <div className="flex flex-col gap-1.5">
+                          <button onClick={()=>handleToggleVolunteer(volunteer.user_id, volunteer.is_active)} className={`rounded-lg px-2.5 py-1 text-[10px] font-bold border ${volunteer.is_active ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>{volunteer.is_active ? 'Pause' : 'Activate'}</button>
+                          <button onClick={()=>handleRemoveVolunteer(volunteer.user_id)} className="rounded-lg border border-red-500/15 bg-red-500/5 px-2.5 py-1 text-[10px] font-bold text-red-300 hover:bg-red-500/10">Remove</button>
                         </div>
                       </div>
                     ))
@@ -1319,6 +1602,125 @@ export function AdminDashboardClient({ eventId, events, user }: AdminDashboardCl
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* TAB 5: EVENT SETTINGS */}
+        {activeTab === "settings" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className={`${sectionCard} p-6 border border-white/5`}>
+              <div className="mb-6 flex items-center gap-3">
+                <div className="rounded-xl bg-purple-500/10 p-2.5 border border-purple-500/20"><Settings className="h-5 w-5 text-purple-400"/></div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Event Control Center</h3>
+                  <p className="text-xs text-slate-400">Update title, venue, dates, registration & status</p>
+                </div>
+                <span className="ml-auto rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">ID: {eventId.slice(0,8)}...</span>
+              </div>
+              {!eventForm ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-purple-400"/></div>
+              ) : (
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase">Event Title</label>
+                    <input value={eventForm.title} onChange={e=>setEventForm({...eventForm, title:e.target.value})} className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-purple-500"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase">Venue</label>
+                    <input value={eventForm.venue} onChange={e=>setEventForm({...eventForm, venue:e.target.value})} placeholder="e.g. Main Auditorium" className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-purple-500"/>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase">Description</label>
+                    <textarea value={eventForm.description} onChange={e=>setEventForm({...eventForm, description:e.target.value})} rows={3} placeholder="Event description..." className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-purple-500"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase flex items-center gap-1"><Calendar className="h-3 w-3"/> Start Date</label>
+                    <input type="datetime-local" value={eventForm.start_date} onChange={e=>setEventForm({...eventForm, start_date:e.target.value})} className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-purple-500"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase flex items-center gap-1"><Calendar className="h-3 w-3"/> End Date</label>
+                    <input type="datetime-local" value={eventForm.end_date} onChange={e=>setEventForm({...eventForm, end_date:e.target.value})} className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-purple-500"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase flex items-center gap-1"><Power className="h-3 w-3"/> Registration</label>
+                    <button onClick={()=>setEventForm({...eventForm, registration_open: !eventForm.registration_open})} className={`mt-1.5 w-full flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-bold transition ${eventForm.registration_open ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>
+                      <span>{eventForm.registration_open ? 'Open — Accepting registrations' : 'Closed — Registrations paused'}</span>
+                      {eventForm.registration_open ? <ToggleRight className="h-5 w-5"/> : <ToggleLeft className="h-5 w-5"/>}
+                    </button>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase flex items-center gap-1"><Layers className="h-3 w-3"/> Event Status</label>
+                    <select value={eventForm.status} onChange={e=>setEventForm({...eventForm, status:e.target.value})} className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none focus:border-purple-500">
+                      <option value="draft">Draft</option><option value="published">Published</option><option value="live">Live</option><option value="completed">Completed</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2 flex gap-3 pt-2">
+                    <button onClick={handleUpdateEventSettings} disabled={bulkBusy} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-bold text-white hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 shadow-lg">{bulkBusy ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="h-4 w-4"/>} Save Event Settings</button>
+                    <button onClick={loadDashboardData} className="rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10">Refresh</button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Email Analytics Mini */}
+            <div className={`${sectionCard} p-6 border border-white/5`}>
+              <div className="mb-4 flex items-center gap-2"><Mail className="h-5 w-5 text-cyan-400"/><h3 className="text-sm font-bold uppercase tracking-wider text-cyan-400">Email Delivery Analytics</h3></div>
+              {!data.emailAnalytics ? <p className="text-xs text-slate-500">No email data yet</p> : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-center">
+                    <p className="text-xs uppercase font-bold tracking-widest text-slate-400">Total Emails</p><p className="text-2xl font-black mt-1">{data.emailAnalytics.total}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+                    <p className="text-xs uppercase font-bold tracking-widest text-slate-400 mb-2">By Type</p>
+                    <div className="space-y-1 text-xs">{Object.entries(data.emailAnalytics.byType).map(([k,v])=> <div key={k} className="flex justify-between"><span className="text-slate-400">{k}</span><span className="font-bold text-white">{v}</span></div>)}</div>
+                  </div>
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+                    <p className="text-xs uppercase font-bold tracking-widest text-slate-400 mb-2">By Status</p>
+                    <div className="space-y-1 text-xs">{Object.entries(data.emailAnalytics.byStatus).map(([k,v])=> <div key={k} className="flex justify-between"><span className={`capitalize ${k==='sent' ? 'text-emerald-400' : k==='failed' ? 'text-red-400' : 'text-amber-400'}`}>{k}</span><span className="font-bold text-white">{v}</span></div>)}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: AUDIT LOGS */}
+        {activeTab === "logs" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className={`${sectionCard} p-6 border border-white/5`}>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-amber-500/10 p-2.5 border border-amber-500/20"><History className="h-5 w-5 text-amber-400"/></div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Audit Timeline</h3>
+                    <p className="text-xs text-slate-400">All admin & system actions for this event</p>
+                  </div>
+                </div>
+                <button onClick={loadDashboardData} className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 hover:text-white"><RefreshCw className="h-4 w-4"/></button>
+              </div>
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
+                {data.auditLogs.length===0 ? (
+                  <div className="py-16 text-center">
+                    <ScrollText className="h-8 w-8 text-slate-600 mx-auto mb-2"/>
+                    <p className="text-sm text-slate-400">No audit logs yet — actions will appear here</p>
+                  </div>
+                ) : data.auditLogs.map(log => (
+                  <div key={log.id} className="flex gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-4 hover:border-white/10 transition">
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${log.action.includes('approved') ? 'bg-emerald-500/10 text-emerald-400' : log.action.includes('rejected') ? 'bg-red-500/10 text-red-400' : log.action.includes('volunteer') ? 'bg-purple-500/10 text-purple-400' : log.action.includes('service') ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                      {log.action.includes('approved') ? <CheckCircle className="h-4 w-4"/> : log.action.includes('rejected') ? <XCircle className="h-4 w-4"/> : log.action.includes('volunteer') ? <ShieldCheck className="h-4 w-4"/> : <ScrollText className="h-4 w-4"/>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-300">{log.action}</span>
+                        {log.entity_type && <span className="text-[10px] text-slate-500">{log.entity_type} • {log.entity_type && String(log.metadata?.qrMemberCount ?? '').slice(0,40)}</span>}
+                      </div>
+                      <p className="text-xs text-slate-300 mt-1.5">By: <span className="font-semibold text-white">{log.actor?.full_name ?? log.actor?.email ?? 'System'}</span> — {log.actor?.email ?? ''}</p>
+                      <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1"><Clock className="h-3 w-3"/>{formatDateTime(log.created_at)}</p>
+                      {log.metadata && Object.keys(log.metadata).length>0 && <pre className="mt-2 rounded-lg bg-slate-950/50 border border-white/5 p-2 text-[10px] text-slate-400 overflow-x-auto">{JSON.stringify(log.metadata, null, 1).slice(0,500)}</pre>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

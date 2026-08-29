@@ -8,9 +8,16 @@ export function getConfiguredAdminEmail() {
   return getAdminAuthEnv().ADMIN_LOGIN_EMAIL;
 }
 
-export async function ensureConfiguredAdminAccount() {
+export async function ensureConfiguredAdminAccount(): Promise<{ email: string; password: string } | null> {
   const { ADMIN_LOGIN_EMAIL, ADMIN_LOGIN_PASSWORD } = getAdminAuthEnv();
-  const admin = createSupabaseAdminClient();
+
+  let admin: ReturnType<typeof createSupabaseAdminClient>;
+  try {
+    admin = createSupabaseAdminClient();
+  } catch (envError) {
+    console.warn("[admin-account] Supabase admin env not configured, skipping auto-provision:", envError);
+    return null;
+  }
 
   const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({
     page: 1,
@@ -18,7 +25,14 @@ export async function ensureConfiguredAdminAccount() {
   });
 
   if (usersError) {
-    throw new AppError(500, "Unable to prepare the admin account.", false);
+    console.warn("[admin-account] listUsers failed, skipping auto-provision:", {
+      message: usersError.message,
+      status: (usersError as { status?: number }).status,
+      name: usersError.name,
+    });
+    // Don't hard-fail the login page — admin may already exist or provisioning can be retried later.
+    // Return null so the page still renders; ops can create the account manually in Supabase Auth.
+    return null;
   }
 
   const normalizedEmail = ADMIN_LOGIN_EMAIL.toLowerCase();
@@ -35,7 +49,13 @@ export async function ensureConfiguredAdminAccount() {
     });
 
     if (createError || !createdUser.user) {
-      console.error("Unable to create configured admin user", createError);
+      console.error("[admin-account] createUser failed:", createError);
+      // If create failed due to race/user already exists, treat as non-fatal
+      const msg = (createError as { message?: string })?.message?.toLowerCase() ?? "";
+      if (msg.includes("already") || msg.includes("exists") || msg.includes("duplicate")) {
+        console.warn("[admin-account] Admin user likely already exists, continuing without provisioning.");
+        return null;
+      }
       throw new AppError(500, "Unable to prepare the admin account.", false);
     }
 
@@ -54,8 +74,12 @@ export async function ensureConfiguredAdminAccount() {
     });
 
     if (updateAuthError) {
-      console.error("Unable to update configured admin password", updateAuthError);
-      throw new AppError(500, "Unable to prepare the admin account.", false);
+      console.warn("[admin-account] updateUserById failed, continuing (login may still work):", updateAuthError);
+      // Don't block login — password sync is best-effort. Return null but don't throw.
+      return {
+        email: ADMIN_LOGIN_EMAIL,
+        password: ADMIN_LOGIN_PASSWORD,
+      };
     }
   }
 
@@ -79,8 +103,12 @@ export async function ensureConfiguredAdminAccount() {
   );
 
   if (profileError) {
-    console.error("Unable to promote configured admin profile", profileError);
-    throw new AppError(500, "Unable to prepare the admin account.", false);
+    console.warn("[admin-account] profile upsert failed, login may still proceed:", profileError);
+    // Profile sync is best-effort — admin can be promoted manually via `public.profiles.role = super_admin`
+    return {
+      email: ADMIN_LOGIN_EMAIL,
+      password: ADMIN_LOGIN_PASSWORD,
+    };
   }
 
   return {

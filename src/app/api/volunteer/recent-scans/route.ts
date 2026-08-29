@@ -1,10 +1,10 @@
 import { getVolunteerRecentScans } from "@/lib/backend/volunteer";
 import { corsPreflight, jsonCorsError, jsonCorsOk } from "@/lib/http";
-import { requireVolunteerUser } from "@/lib/security/permissions";
+import { requireAuthenticatedUser } from "@/lib/security/permissions";
 
 export async function GET(request: Request) {
   try {
-    const user = await requireVolunteerUser(request);
+    const user = await requireAuthenticatedUser(request);
     const result = await getVolunteerRecentScans(user);
 
     return jsonCorsOk({ recentScans: result }, request);

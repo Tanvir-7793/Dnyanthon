@@ -46,7 +46,12 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // If Supabase is unreachable, keep serving the request — pages handle auth themselves.
+    // Without this, a network blip turns every route into a 500.
+  }
 
   return response;
 }
