@@ -6,6 +6,10 @@ declare module "qrcode" {
         errorCorrectionLevel?: "L" | "M" | "Q" | "H";
         margin?: number;
         width?: number;
+        color?: {
+          dark?: string;
+          light?: string;
+        };
       },
     ): Promise<string>;
   };

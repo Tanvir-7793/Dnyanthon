@@ -30,7 +30,9 @@ export function renderApprovalPassEmail({
       (member) => `
         <div style="border-radius:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);padding:24px;margin-bottom:18px;">
           <div style="text-align:center;margin-bottom:18px;">
-            <img src="cid:${text(member.qrInlineContentId)}" alt="${text(member.participantName)} QR Pass" width="240" height="240" style="width:240px;max-width:100%;border-radius:16px;background:#ffffff;padding:16px;" />
+            <div style="display:inline-block;background:#ffffff;padding:14px;border-radius:14px;">
+              <img src="cid:${text(member.qrInlineContentId)}" alt="${text(member.participantName)} QR Pass" width="280" height="280" style="width:280px;height:280px;max-width:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;" />
+            </div>
             <p style="margin:18px 0 0;color:#ffffff;font-weight:700;font-size:18px;">${text(member.participantName)}</p>
             <p style="margin:8px 0 0;color:rgba(232,234,240,0.6);font-size:13px;">Team ${text(member.teamName)}</p>
           </div>
