@@ -1,6 +1,5 @@
 "use client"
 import { useState, useEffect, useRef } from "react";
-import { animate, createTimeline, stagger } from "animejs";
 import RegisterCTA from "@/components/sections/RegisterCTA";
 import Organizers from "@/components/sections/Organizers";
 import FAQ from "@/components/sections/FAQ";
@@ -195,49 +194,58 @@ export default function Dnyanothon2026() {
   }, []);
 
   useEffect(() => {
-    const tl = createTimeline();
+    let tl: any;
+    const init = async () => {
+      const { animate, createTimeline, stagger } = await import("animejs");
+      tl = createTimeline();
 
-    tl.add(
-      cardRefs.current.filter(Boolean),
-      {
-        opacity: [0, 1],
-        translateY: [30, 0],
-        delay: stagger(140),
-        easing: "easeOutQuart",
-      },
-      0
-    )
-      .add(
-        dotRefs.current.filter(Boolean),
-        {
-          scale: [0, 1],
-          opacity: [0, 1],
-          delay: stagger(160),
-          easing: "easeOutBack",
-        },
-        0
-      )
-      .add(
-        mobileCardRefs.current.filter(Boolean),
+      tl.add(
+        cardRefs.current.filter(Boolean),
         {
           opacity: [0, 1],
-          translateY: [24, 0],
-          delay: stagger(120),
+          translateY: [30, 0],
+          delay: stagger(140),
           easing: "easeOutQuart",
         },
         0
-      );
+      )
+        .add(
+          dotRefs.current.filter(Boolean),
+          {
+            scale: [0, 1],
+            opacity: [0, 1],
+            delay: stagger(160),
+            easing: "easeOutBack",
+          },
+          0
+        )
+        .add(
+          mobileCardRefs.current.filter(Boolean),
+          {
+            opacity: [0, 1],
+            translateY: [24, 0],
+            delay: stagger(120),
+            easing: "easeOutQuart",
+          },
+          0
+        );
 
-    animate(".timeline-dot-active", {
-      scale: [1, 1.2, 1],
-      boxShadow: [
-        "0 0 0 0 rgba(255,105,180,0.7)",
-        "0 0 0 14px rgba(255,105,180,0)",
-      ],
-      duration: 2200,
-      loop: true,
-      easing: "easeInOutSine",
-    });
+      animate(".timeline-dot-active", {
+        scale: [1, 1.2, 1],
+        boxShadow: [
+          "0 0 0 0 rgba(255,105,180,0.7)",
+          "0 0 0 14px rgba(255,105,180,0)",
+        ],
+        duration: 2200,
+        loop: true,
+        easing: "easeInOutSine",
+      });
+    };
+    init();
+
+    return () => {
+      tl?.pause?.();
+    };
   }, []);
 
   const scrollTo = (id: string) => {
