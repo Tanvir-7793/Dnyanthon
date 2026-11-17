@@ -22,8 +22,8 @@ const TRACKS = [
     icon: "🤖",
     name: "AI & Machine Learning",
     desc: "Build intelligent systems that learn, adapt, and transform how we interact with data.",
-    color: "#6366f1",
-    glow: "#6366f180",
+    color: "#FF69B4",
+    glow: "#FF69B480",
   },
   {
     icon: "🌱",
@@ -107,7 +107,7 @@ const TRACK_PRIZES = [
 ];
 
 const SPEAKERS = [
-  { name: "Dr. Ananya Kulkarni", role: "AI Research Lead, TIFR", initial: "AK", color: "#6366f1" },
+  { name: "Dr. Ananya Kulkarni", role: "AI Research Lead, TIFR", initial: "AK", color: "#FF69B4" },
   { name: "Rohan Deshmukh", role: "Co-Founder, AgriConnect", initial: "RD", color: "#10b981" },
   { name: "Priyanka Iyer", role: "Product Head, PhonePe", initial: "PI", color: "#f59e0b" },
   { name: "Siddharth Rane", role: "VC Partner, Blume Ventures", initial: "SR", color: "#ec4899" },
@@ -201,10 +201,10 @@ export default function Dnyanothon2026() {
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .glow-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(99,102,241,0.15); }
+        .glow-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(255,105,180,0.15); }
 
         .btn-primary {
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          background: linear-gradient(135deg, #FF69B4, #FF1493);
           color: #fff;
           border: none;
           padding: 14px 32px;
@@ -216,7 +216,7 @@ export default function Dnyanothon2026() {
           transition: all 0.3s ease;
           letter-spacing: 0.3px;
         }
-        .btn-primary:hover { transform: scale(1.05); box-shadow: 0 8px 32px rgba(99,102,241,0.5); }
+        .btn-primary:hover { transform: scale(1.05); box-shadow: 0 8px 32px rgba(255,105,180,0.5); }
 
         .btn-outline {
           background: transparent;
@@ -230,7 +230,7 @@ export default function Dnyanothon2026() {
           cursor: pointer;
           transition: all 0.3s ease;
         }
-        .btn-outline:hover { border-color: rgba(99,102,241,0.7); color: #a5b4fc; background: rgba(99,102,241,0.1); }
+        .btn-outline:hover { border-color: rgba(255,105,180,0.7); color: #FFB7CE; background: rgba(255,105,180,0.1); }
 
         .nav-link {
           color: rgba(232,234,240,0.7);
@@ -254,10 +254,10 @@ export default function Dnyanothon2026() {
         .track-card:hover { background: rgba(255,255,255,0.06); transform: translateY(-6px); }
 
         .timeline-dot-done { background: #10b981; box-shadow: 0 0 12px #10b98170; }
-        .timeline-dot-active { background: #6366f1; box-shadow: 0 0 16px #6366f1aa; animation: pulse 2s infinite; }
+        .timeline-dot-active { background: #FF69B4; box-shadow: 0 0 16px #FF69B4aa; animation: pulse 2s infinite; }
         .timeline-dot-upcoming { background: rgba(255,255,255,0.15); }
 
-        @keyframes pulse { 0%,100%{ box-shadow:0 0 10px #6366f180; } 50%{ box-shadow:0 0 22px #6366f1cc; } }
+        @keyframes pulse { 0%,100%{ box-shadow:0 0 10px #FF69B480; } 50%{ box-shadow:0 0 22px #FF69B4cc; } }
 
         .prize-card {
           border-radius: 24px;
@@ -285,9 +285,9 @@ export default function Dnyanothon2026() {
 
         .section-tag {
           display: inline-block;
-          background: rgba(99,102,241,0.12);
-          border: 1px solid rgba(99,102,241,0.3);
-          color: #a5b4fc;
+          background: rgba(255,105,180,0.12);
+          border: 1px solid rgba(255,105,180,0.3);
+          color: #FFB7CE;
           font-size: 12px;
           font-weight: 600;
           letter-spacing: 1.5px;
@@ -305,8 +305,8 @@ export default function Dnyanothon2026() {
         }
 
         .grid-bg {
-          background-image: linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+          background-image: linear-gradient(rgba(255,105,180,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,105,180,0.04) 1px, transparent 1px);
           background-size: 48px 48px;
         }
 
@@ -337,12 +337,12 @@ export default function Dnyanothon2026() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 34, height: 34, borderRadius: 10,
-            background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+            background: "linear-gradient(135deg,#FF69B4,#FF1493)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontWeight: 800, fontSize: 14, color: "#fff",
           }}>D</div>
           <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-0.3px" }}>
-            Dnyanothon<span style={{ color: "#6366f1" }}> &apos;26</span>
+            Dnyanothon<span style={{ color: "#FF69B4" }}> &apos;26</span>
           </span>
         </div>
 
@@ -408,8 +408,8 @@ export default function Dnyanothon2026() {
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section className="grid-bg" style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "120px 24px 80px", overflow: "hidden" }}>
         {/* Background orbs */}
-        <div className="bg-orb" style={{ width: 600, height: 600, background: "#6366f130", top: -100, left: "50%", transform: "translateX(-50%)" }} />
-        <div className="bg-orb" style={{ width: 400, height: 400, background: "#8b5cf620", bottom: 0, right: "10%" }} />
+        <div className="bg-orb" style={{ width: 600, height: 600, background: "#FF69B430", top: -100, left: "50%", transform: "translateX(-50%)" }} />
+        <div className="bg-orb" style={{ width: 400, height: 400, background: "#FF149320", bottom: 0, right: "10%" }} />
         <div className="bg-orb" style={{ width: 300, height: 300, background: "#06b6d415", bottom: 100, left: "5%" }} />
 
         {/* Background Text */}
@@ -435,16 +435,16 @@ export default function Dnyanothon2026() {
         {/* Badge */}
         <div style={{
           display: "inline-flex", alignItems: "center", gap: 8,
-          background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)",
+          background: "rgba(255,105,180,0.1)", border: "1px solid rgba(255,105,180,0.3)",
           padding: "8px 20px", borderRadius: 50, marginBottom: 32,
         }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block", boxShadow: "0 0 8px #10b981" }} />
-          <span style={{ fontSize: 13, color: "#a5b4fc", fontWeight: 600, letterSpacing: 1 }}>DIET SATARA · JUNE 7–8, 2026</span>
+          <span style={{ fontSize: 13, color: "#FFB7CE", fontWeight: 600, letterSpacing: 1 }}>DIET SATARA · JUNE 7–8, 2026</span>
         </div>
 
         <h1 className="hero-title" style={{ fontSize: 72, fontWeight: 800, lineHeight: 1.05, letterSpacing: "-2px", marginBottom: 24, maxWidth: 820 }}>
           Where Ideas{" "}
-          <span style={{ background: "linear-gradient(135deg,#6366f1,#a78bfa,#06b6d4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          <span style={{ background: "linear-gradient(135deg,#FF69B4,#FFB7CE,#06b6d4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Collide with
           </span>
           {" "}Ambition
@@ -479,7 +479,7 @@ export default function Dnyanothon2026() {
               border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 14, padding: "14px 24px", textAlign: "center"
             }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#a5b4fc" }}>{s.val}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#FFB7CE" }}>{s.val}</div>
               <div style={{ fontSize: 12, color: "rgba(232,234,240,0.45)", marginTop: 2, letterSpacing: 1 }}>{s.label.toUpperCase()}</div>
             </div>
           ))}
@@ -497,7 +497,7 @@ export default function Dnyanothon2026() {
         <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "clamp(12px, 3vw, 20px)" }}>
           {STATS.map((s) => (
             <GlowCard key={s.label} style={{ padding: "clamp(16px, 4vw, 32px) clamp(12px, 3vw, 24px)", textAlign: "center" }}>
-              <div style={{ fontSize: "clamp(24px, 6vw, 40px)", fontWeight: 800, color: "#a5b4fc", lineHeight: 1 }}>
+              <div style={{ fontSize: "clamp(24px, 6vw, 40px)", fontWeight: 800, color: "#FFB7CE", lineHeight: 1 }}>
                 <AnimatedCounter target={s.value} prefix={s.prefix || ""} suffix={s.suffix} />
               </div>
               <div style={{ fontSize: "clamp(10px, 2.5vw, 13px)", color: "rgba(232,234,240,0.5)", marginTop: 8, letterSpacing: 1, fontWeight: 500 }}>
@@ -515,7 +515,7 @@ export default function Dnyanothon2026() {
             <div className="section-tag">About the Event</div>
             <h2 style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.15, marginBottom: 20, letterSpacing: "-1px" }}>
               The Biggest Hackathon in{" "}
-              <span style={{ color: "#6366f1" }}>Satara District</span>
+              <span style={{ color: "#FF69B4" }}>Satara District</span>
             </h2>
             <p style={{ fontSize: 16, color: "rgba(232,234,240,0.6)", lineHeight: 1.8, marginBottom: 16, fontFamily: "'Inter', sans-serif" }}>
               Dnyanothon 2026 is the annual flagship tech innovation festival organized by DIET (District Institute of Education and Training), Satara. A melting pot of the sharpest student minds from Maharashtra and beyond.
@@ -592,9 +592,9 @@ export default function Dnyanothon2026() {
             }} className="hide-mobile">
               <GlowCard style={{
                 padding: "18px 24px", width: "42%",
-                borderLeft: t.status === "active" ? "2px solid #6366f1" : "none",
+                borderLeft: t.status === "active" ? "2px solid #FF69B4" : "none",
               }}>
-                <div style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, marginBottom: 4, letterSpacing: 1 }}>{t.date.toUpperCase()}</div>
+                <div style={{ fontSize: 12, color: "#FF69B4", fontWeight: 600, marginBottom: 4, letterSpacing: 1 }}>{t.date.toUpperCase()}</div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{t.event}</div>
               </GlowCard>
               {/* Dot */}
@@ -615,7 +615,7 @@ export default function Dnyanothon2026() {
                   <div style={{ width: 1, flex: 1, background: "rgba(255,255,255,0.08)", marginTop: 4 }} />
                 </div>
                 <div style={{ paddingBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 600, marginBottom: 2 }}>{t.date}</div>
+                  <div style={{ fontSize: 11, color: "#FF69B4", fontWeight: 600, marginBottom: 2 }}>{t.date}</div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{t.event}</div>
                 </div>
               </div>
@@ -629,7 +629,7 @@ export default function Dnyanothon2026() {
             <GlowCard key={t.event} style={{ padding: "16px 20px", display: "flex", gap: 16, alignItems: "center" }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0 }} className={`timeline-dot-${t.status}`} />
               <div>
-                <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, letterSpacing: 1 }}>{t.date.toUpperCase()}</div>
+                <div style={{ fontSize: 11, color: "#FF69B4", fontWeight: 700, letterSpacing: 1 }}>{t.date.toUpperCase()}</div>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{t.event}</div>
               </div>
             </GlowCard>
@@ -678,10 +678,10 @@ export default function Dnyanothon2026() {
             <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
               {TRACK_PRIZES.map(tp => (
                 <div key={tp.name} style={{
-                  background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)",
+                  background: "rgba(255,105,180,0.1)", border: "1px solid rgba(255,105,180,0.25)",
                   borderRadius: 14, padding: "14px 24px", textAlign: "center"
                 }}>
-                  <div style={{ fontWeight: 700, fontSize: 18, color: "#a5b4fc" }}>{tp.amount}</div>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: "#FFB7CE" }}>{tp.amount}</div>
                   <div style={{ fontSize: 12, color: "rgba(232,234,240,0.5)", marginTop: 4 }}>{tp.name}</div>
                 </div>
               ))}
@@ -749,8 +749,8 @@ export default function Dnyanothon2026() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 32, marginBottom: 40 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>D</div>
-                <span style={{ fontWeight: 800, fontSize: 16 }}>Dnyanothon <span style={{ color: "#6366f1" }}>&apos;26</span></span>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#FF69B4,#FF1493)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>D</div>
+                <span style={{ fontWeight: 800, fontSize: 16 }}>Dnyanothon <span style={{ color: "#FF69B4" }}>&apos;26</span></span>
               </div>
               <p style={{ fontSize: 13, color: "rgba(232,234,240,0.4)", maxWidth: 260, lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>
                 Organized by DIET Satara · Maharashtra, India<br />
