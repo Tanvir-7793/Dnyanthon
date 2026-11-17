@@ -186,6 +186,7 @@ export default function Dnyanothon2026() {
   const dotRefs = useRef<HTMLDivElement[]>([]);
   const mobileCardRefs = useRef<HTMLDivElement[]>([]);
   const mobileDotRefs = useRef<HTMLDivElement[]>([]);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -194,18 +195,32 @@ export default function Dnyanothon2026() {
   }, []);
 
   useEffect(() => {
-    let tl: any;
-    const init = async () => {
-      const { animate, createTimeline, stagger } = await import("animejs");
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    let animeModule: any = null;
+    let tl: any = null;
+    let activePulse: any = null;
+
+    const runTimelineAnimation = async () => {
+      if (animeModule) return;
+      animeModule = await import("animejs");
+      const { animate, createTimeline, stagger } = animeModule;
+
       tl = createTimeline();
 
       tl.add(
         cardRefs.current.filter(Boolean),
         {
           opacity: [0, 1],
-          translateY: [30, 0],
-          delay: stagger(140),
-          easing: "easeOutQuart",
+          translateX: (el: any, i: number) => (i % 2 === 0 ? [-70, 0] : [70, 0]),
+          translateY: [40, 0],
+          delay: stagger(200),
+          duration: 1000,
+          easing: "easeOutExpo",
         },
         0
       )
@@ -214,7 +229,8 @@ export default function Dnyanothon2026() {
           {
             scale: [0, 1],
             opacity: [0, 1],
-            delay: stagger(160),
+            delay: stagger(240),
+            duration: 800,
             easing: "easeOutBack",
           },
           0
@@ -223,28 +239,48 @@ export default function Dnyanothon2026() {
           mobileCardRefs.current.filter(Boolean),
           {
             opacity: [0, 1],
-            translateY: [24, 0],
-            delay: stagger(120),
-            easing: "easeOutQuart",
+            translateY: [28, 0],
+            delay: stagger(140),
+            duration: 850,
+            easing: "easeOutExpo",
           },
           0
         );
 
-      animate(".timeline-dot-active", {
-        scale: [1, 1.2, 1],
+      activePulse = animate(".timeline-dot-active", {
+        scale: [1, 1.3, 1],
         boxShadow: [
           "0 0 0 0 rgba(255,105,180,0.7)",
-          "0 0 0 14px rgba(255,105,180,0)",
+          "0 0 0 18px rgba(255,105,180,0)",
         ],
-        duration: 2200,
+        duration: 2600,
         loop: true,
         easing: "easeInOutSine",
       });
     };
-    init();
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          runTimelineAnimation();
+          observerRef.current?.disconnect();
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, {
+      threshold: 0.12,
+      rootMargin: "0px 0px -100px 0px",
+    });
+
+    const timelineSection = document.getElementById("timeline");
+    if (timelineSection) observer.observe(timelineSection);
+    observerRef.current = observer;
 
     return () => {
       tl?.pause?.();
+      activePulse?.pause?.();
+      observer.disconnect();
     };
   }, []);
 
@@ -678,7 +714,6 @@ export default function Dnyanothon2026() {
                   boxShadow: t.status === "active" ? "0 12px 40px rgba(255,105,180,0.14)" : "none",
                   position: "relative",
                   opacity: 0,
-                  transform: "translateY(30px)",
                 }}
               >
                 <div style={{
@@ -790,7 +825,7 @@ export default function Dnyanothon2026() {
         </div>
 
         {/* Mobile timeline */}
-        <div className="show-mobile-flex" style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative", paddingLeft: 10, opacity: 0, transform: "translateY(30px)" }}>
+        <div className="show-mobile-flex" style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative", paddingLeft: 10, opacity: 0 }}>
           <div
             style={{
               position: "absolute",
@@ -804,7 +839,7 @@ export default function Dnyanothon2026() {
           {TIMELINE.map((t, i) => (
             <div
               key={t.event}
-              style={{ display: "flex", gap: 12, alignItems: "flex-start", opacity: 0, transform: "translateY(30px)" }}
+              style={{ display: "flex", gap: 12, alignItems: "flex-start", opacity: 0 }}
             >
               <div
                 ref={(el) => { if (el) mobileDotRefs.current[i] = el; }}
