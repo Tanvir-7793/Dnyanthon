@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { animate, createTimeline, stagger } from "animejs";
 import RegisterCTA from "@/components/sections/RegisterCTA";
 import Organizers from "@/components/sections/Organizers";
 import FAQ from "@/components/sections/FAQ";
@@ -183,11 +183,61 @@ export default function Dnyanothon2026() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const cardRefs = useRef<HTMLDivElement[]>([]);
+  const dotRefs = useRef<HTMLDivElement[]>([]);
+  const mobileCardRefs = useRef<HTMLDivElement[]>([]);
+  const mobileDotRefs = useRef<HTMLDivElement[]>([]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const tl = createTimeline();
+
+    tl.add(
+      cardRefs.current.filter(Boolean),
+      {
+        opacity: [0, 1],
+        translateY: [30, 0],
+        delay: stagger(140),
+        easing: "easeOutQuart",
+      },
+      0
+    )
+      .add(
+        dotRefs.current.filter(Boolean),
+        {
+          scale: [0, 1],
+          opacity: [0, 1],
+          delay: stagger(160),
+          easing: "easeOutBack",
+        },
+        0
+      )
+      .add(
+        mobileCardRefs.current.filter(Boolean),
+        {
+          opacity: [0, 1],
+          translateY: [24, 0],
+          delay: stagger(120),
+          easing: "easeOutQuart",
+        },
+        0
+      );
+
+    animate(".timeline-dot-active", {
+      scale: [1, 1.2, 1],
+      boxShadow: [
+        "0 0 0 0 rgba(255,105,180,0.7)",
+        "0 0 0 14px rgba(255,105,180,0)",
+      ],
+      duration: 2200,
+      loop: true,
+      easing: "easeInOutSine",
+    });
   }, []);
 
   const scrollTo = (id: string) => {
@@ -581,11 +631,7 @@ export default function Dnyanothon2026() {
           <h2 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-1px" }}>Mark Your Calendar</h2>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }}
-          style={{ position: "relative" }}
-        >
+        <div style={{ position: "relative" }}>
           {/* Center connector line */}
           <div
             style={{
@@ -612,13 +658,8 @@ export default function Dnyanothon2026() {
               }}
               className="hide-mobile"
             >
-              <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{
-                  opacity: 1,
-                  y: 0,
-                  transition: { duration: 0.55, delay: i * 0.11, ease: "easeOut" },
-                }}
+              <div
+                ref={(el) => { if (el) cardRefs.current[i] = el; }}
                 style={{
                   width: "42%",
                   padding: "20px 26px",
@@ -628,6 +669,8 @@ export default function Dnyanothon2026() {
                   borderLeft: t.status === "active" ? "3px solid #FF69B4" : "none",
                   boxShadow: t.status === "active" ? "0 12px 40px rgba(255,105,180,0.14)" : "none",
                   position: "relative",
+                  opacity: 0,
+                  transform: "translateY(30px)",
                 }}
               >
                 <div style={{
@@ -680,16 +723,15 @@ export default function Dnyanothon2026() {
                 >
                   {t.event}
                 </div>
-              </motion.div>
+              </div>
 
               {/* Timeline dot */}
-              <motion.div
-                whileHover={{ scale: 1.4 }}
+              <div
+                ref={(el) => { if (el) dotRefs.current[i] = el; }}
                 style={{
                   position: "absolute",
                   left: "50%",
                   top: 18,
-                  transform: "translateX(-50%)",
                   width: 14,
                   height: 14,
                   borderRadius: "50%",
@@ -698,18 +740,14 @@ export default function Dnyanothon2026() {
                   boxShadow: t.status === "active" ? "0 0 0 10px rgba(255,105,180,0.3), 0 0 20px #FF69B4" : "none",
                   zIndex: 2,
                   cursor: "pointer",
+                  opacity: 0,
+                  transform: "translateX(-50%) scale(0)",
                 }}
+                className={`timeline-dot ${t.status === "active" ? "timeline-dot-active" : ""}`}
               >
                 {t.status === "active" && (
-                  <motion.div
-                    animate={{
-                      boxShadow: [
-                        "0 0 0 0 rgba(255,105,180,0.5)",
-                        "0 0 0 14px rgba(255,105,180,0)",
-                        "0 0 0 0 rgba(255,105,180,0.5)",
-                      ],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  <div
+                    className="active-pulse"
                     style={{
                       position: "absolute",
                       left: "50%",
@@ -723,7 +761,7 @@ export default function Dnyanothon2026() {
                     }}
                   />
                 )}
-              </motion.div>
+              </div>
 
               {i % 2 === 1 && (
                 <div
@@ -741,15 +779,10 @@ export default function Dnyanothon2026() {
               )}
             </div>
           ))}
-        </motion.div>
+        </div>
 
         {/* Mobile timeline */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" } }}
-          className="show-mobile-flex"
-          style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative", paddingLeft: 10 }}
-        >
+        <div className="show-mobile-flex" style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative", paddingLeft: 10, opacity: 0, transform: "translateY(30px)" }}>
           <div
             style={{
               position: "absolute",
@@ -761,18 +794,12 @@ export default function Dnyanothon2026() {
             }}
           />
           {TIMELINE.map((t, i) => (
-            <motion.div
+            <div
               key={t.event}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{
-                opacity: 1,
-                y: 0,
-                transition: { duration: 0.5, delay: i * 0.09, ease: "easeOut" },
-              }}
-              style={{ display: "flex", gap: 12, alignItems: "flex-start" }}
+              style={{ display: "flex", gap: 12, alignItems: "flex-start", opacity: 0, transform: "translateY(30px)" }}
             >
-              <motion.div
-                whileHover={{ scale: 1.3 }}
+              <div
+                ref={(el) => { if (el) mobileDotRefs.current[i] = el; }}
                 style={{
                   width: 12,
                   height: 12,
@@ -785,6 +812,7 @@ export default function Dnyanothon2026() {
                 }}
               />
               <div
+                ref={(el) => { if (el) mobileCardRefs.current[i] = el; }}
                 style={{
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.07)",
@@ -808,9 +836,9 @@ export default function Dnyanothon2026() {
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 14.5, color: "#e8eaf0" }}>{t.event}</div>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </section>
 
       {/* ── Prizes ───────────────────────────────────────────────────────────── */}
