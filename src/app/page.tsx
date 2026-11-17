@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import RegisterCTA from "@/components/sections/RegisterCTA";
 import Organizers from "@/components/sections/Organizers";
 import FAQ from "@/components/sections/FAQ";
@@ -579,62 +580,237 @@ export default function Dnyanothon2026() {
           <div className="section-tag">Event Schedule</div>
           <h2 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-1px" }}>Mark Your Calendar</h2>
         </div>
-        <div style={{ position: "relative" }}>
-          {/* Center line */}
-          <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.08)", transform: "translateX(-50%)" }} className="hide-mobile" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }}
+          style={{ position: "relative" }}
+        >
+          {/* Center connector line */}
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 0,
+              bottom: 0,
+              width: 2,
+              background: "linear-gradient(to bottom, rgba(255,105,180,0.12), rgba(255,105,180,0.0))",
+              transform: "translateX(-50%)",
+              zIndex: 0,
+            }}
+            className="hide-mobile"
+          />
 
           {TIMELINE.map((t, i) => (
-            <div key={t.event} style={{
-              display: "flex",
-              justifyContent: i % 2 === 0 ? "flex-start" : "flex-end",
-              marginBottom: 32,
-              position: "relative",
-            }} className="hide-mobile">
-              <GlowCard style={{
-                padding: "18px 24px", width: "42%",
-                borderLeft: t.status === "active" ? "2px solid #FF69B4" : "none",
-              }}>
-                <div style={{ fontSize: 12, color: "#FF69B4", fontWeight: 600, marginBottom: 4, letterSpacing: 1 }}>{t.date.toUpperCase()}</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{t.event}</div>
-              </GlowCard>
-              {/* Dot */}
-              <div style={{
-                position: "absolute", left: "50%", top: "50%",
-                transform: "translate(-50%, -50%)",
-                width: 12, height: 12, borderRadius: "50%",
-              }} className={`timeline-dot-${t.status}`} />
+            <div
+              key={t.event}
+              style={{
+                display: "flex",
+                justifyContent: i % 2 === 0 ? "flex-start" : "flex-end",
+                marginBottom: 52,
+                position: "relative",
+              }}
+              className="hide-mobile"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: 0.55, delay: i * 0.11, ease: "easeOut" },
+                }}
+                style={{
+                  width: "42%",
+                  padding: "20px 26px",
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.03)",
+                  border: `1px solid ${t.status === "active" ? "rgba(255,105,180,0.35)" : "rgba(255,255,255,0.07)"}`,
+                  borderLeft: t.status === "active" ? "3px solid #FF69B4" : "none",
+                  boxShadow: t.status === "active" ? "0 12px 40px rgba(255,105,180,0.14)" : "none",
+                  position: "relative",
+                }}
+              >
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 10,
+                }}>
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: t.status === "active" ? "#FF69B4" : t.status === "done" ? "#10b981" : "rgba(255,255,255,0.15)",
+                      boxShadow: t.status === "active" ? "0 0 14px #FF69B4" : "none",
+                      display: "inline-block",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: t.status === "active" ? "#FFB7CE" : t.status === "done" ? "#34d399" : "rgba(232,234,240,0.5)",
+                      fontWeight: 700,
+                      letterSpacing: 1.2,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {t.status.toUpperCase()}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    color: "rgba(232,234,240,0.45)",
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {t.date}
+                </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: "#e8eaf0",
+                    letterSpacing: "-0.2px",
+                  }}
+                >
+                  {t.event}
+                </div>
+              </motion.div>
+
+              {/* Timeline dot */}
+              <motion.div
+                whileHover={{ scale: 1.4 }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: 18,
+                  transform: "translateX(-50%)",
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: t.status === "active" ? "#FF69B4" : t.status === "done" ? "#10b981" : "rgba(255,255,255,0.12)",
+                  border: "3px solid #050a14",
+                  boxShadow: t.status === "active" ? "0 0 0 10px rgba(255,105,180,0.3), 0 0 20px #FF69B4" : "none",
+                  zIndex: 2,
+                  cursor: "pointer",
+                }}
+              >
+                {t.status === "active" && (
+                  <motion.div
+                    animate={{
+                      boxShadow: [
+                        "0 0 0 0 rgba(255,105,180,0.5)",
+                        "0 0 0 14px rgba(255,105,180,0)",
+                        "0 0 0 0 rgba(255,105,180,0.5)",
+                      ],
+                    }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      border: "2px solid rgba(255,105,180,0.45)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+              </motion.div>
+
+              {i % 2 === 1 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: 18,
+                    transform: "translateX(-50%)",
+                    width: 1,
+                    height: 34,
+                    background: "rgba(255,105,180,0.12)",
+                    zIndex: 0,
+                  }}
+                />
+              )}
             </div>
           ))}
+        </motion.div>
 
-          {/* Mobile timeline */}
-          <div style={{ display: "none" }} className="mobile-timeline">
-            {TIMELINE.map(t => (
-              <div key={t.event} style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ width: 12, height: 12, borderRadius: "50%", marginTop: 4 }} className={`timeline-dot-${t.status}`} />
-                  <div style={{ width: 1, flex: 1, background: "rgba(255,255,255,0.08)", marginTop: 4 }} />
+        {/* Mobile timeline */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" } }}
+          className="show-mobile-flex"
+          style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative", paddingLeft: 10 }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 6,
+              top: 0,
+              bottom: 0,
+              width: 2,
+              background: "linear-gradient(to bottom, rgba(255,105,180,0.12), rgba(255,105,180,0.0))",
+            }}
+          />
+          {TIMELINE.map((t, i) => (
+            <motion.div
+              key={t.event}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{
+                opacity: 1,
+                y: 0,
+                transition: { duration: 0.5, delay: i * 0.09, ease: "easeOut" },
+              }}
+              style={{ display: "flex", gap: 12, alignItems: "flex-start" }}
+            >
+              <motion.div
+                whileHover={{ scale: 1.3 }}
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  marginTop: 4,
+                  flexShrink: 0,
+                  background: t.status === "active" ? "#FF69B4" : t.status === "done" ? "#10b981" : "rgba(255,255,255,0.12)",
+                  boxShadow: t.status === "active" ? "0 0 12px #FF69B4" : "none",
+                  border: "2px solid #050a14",
+                }}
+              />
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 14,
+                  padding: "14px 18px",
+                  flex: 1,
+                  borderLeft: t.status === "active" ? "3px solid #FF69B4" : "none",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: t.status === "active" ? "#FFB7CE" : "rgba(232,234,240,0.5)",
+                    fontWeight: 700,
+                    letterSpacing: 0.8,
+                    textTransform: "uppercase",
+                    marginBottom: 5,
+                  }}
+                >
+                  {t.date}
                 </div>
-                <div style={{ paddingBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: "#FF69B4", fontWeight: 600, marginBottom: 2 }}>{t.date}</div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{t.event}</div>
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 14.5, color: "#e8eaf0" }}>{t.event}</div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Mobile fallback */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }} className="show-mobile-flex">
-          {TIMELINE.map(t => (
-            <GlowCard key={t.event} style={{ padding: "16px 20px", display: "flex", gap: 16, alignItems: "center" }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0 }} className={`timeline-dot-${t.status}`} />
-              <div>
-                <div style={{ fontSize: 11, color: "#FF69B4", fontWeight: 700, letterSpacing: 1 }}>{t.date.toUpperCase()}</div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{t.event}</div>
-              </div>
-            </GlowCard>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* ── Prizes ───────────────────────────────────────────────────────────── */}
